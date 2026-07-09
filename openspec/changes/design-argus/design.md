@@ -53,8 +53,17 @@ normalizes *surface form*, not *meaning*.)
     so the text encoder is *not* needed at inference — an ONNX export is feasible *later* as an
     optimization (image-encoder + decoder → 4585 logits), not a prerequisite.
   - Trade-off: two runtimes (onnxruntime + torch) in one image — larger image, fine here.
-- **Latency is dominated by RAM++ (Swin-L).** Validate it with a spike on the *target node*
-  before committing to the two-model pipeline (see tasks 1.0/2.3) — don't assume the number.
+- **Latency — spike done (task 0.a), assumption HOLDS.** `spikes/ram_plus_latency.py` measured
+  RAM++ at **0.75s/image single-core / ~0.45s multi** on an M4 Pro floor (parallelism plateaus
+  at ~4 threads — per-core-speed bound), 4.8s warm load. Extrapolated to the target node
+  (~5× slower per-core) ≈ **~1–3s/image**; with wd-tagger (~0.3–1s) ≈ ~1.5–4s total — fine for
+  async, review-gated, personal scale. Rerun on the real node to confirm; ⚠️ RAM++ resident
+  ≈ **3–5 GB** so the node needs **≥8 GB**.
+- **RAM++ scoring is wired.** Argus reproduces `ram_plus.generate_tag`'s forward but keeps the
+  per-tag sigmoid confidences (`ram_plus.py:_tag_scores`), and applies RAM++'s **per-class**
+  thresholds (`model.class_threshold`, ~0.45–1.00) rather than one global value.
+- **The `ml` stack is fragile** — `recognize-anything` under-declares its deps; it needs
+  `transformers==4.25.1` (5.x breaks it), `scipy`, and `fairscale` pinned (now in `pyproject.toml`).
 - Licensing: **both Apache 2.0** (wd-tagger v3, RAM++) — gate closed.
 
 ## Consuming HermesMQ *correctly* (the client)

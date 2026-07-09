@@ -18,9 +18,20 @@ dependencies = [
 [project.optional-dependencies]
 # Heavy inference deps — pulled only on the target node (see tasks 0.a / 1.1).
 # wd-tagger v3 → onnxruntime; RAM++ → torch + the upstream `ram` package.
+#
+# The `recognize-anything` package declares almost nothing; the §0.a spike found
+# it needs these (or import fails), with a hard transformers pin:
+#   - transformers==4.25.1  (5.x removed `apply_chunking_to_forward`, which RAM's BERT imports)
+#   - scipy                 (Swin position-embedding interpolation)
+#   - fairscale             (ViT checkpoint_wrapper)
 ml = [
     "onnxruntime>=1.17",
     "torch>=2.2",
+    "torchvision>=0.17",
+    "timm>=0.9",
+    "transformers==4.25.1",
+    "scipy>=1.10",
+    "fairscale>=0.4",
     "recognize-anything @ git+https://github.com/xinyu1205/recognize-anything.git",
 ]
 # Apollo sample reads over gRPC. NOTE: the .proto (the "Lexicon",
@@ -76,7 +87,7 @@ packages = ["argus"]
 # Optional inference deps (installed only via the `ml`/`grpc` extras on the target
 # node) ship no stubs — don't fail the typecheck on the light dev install.
 [[tool.mypy.overrides]]
-module = ["onnxruntime", "torch", "ram.*", "grpc"]
+module = ["onnxruntime", "torch", "torch.*", "ram.*", "grpc"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
