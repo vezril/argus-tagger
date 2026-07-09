@@ -24,8 +24,11 @@ Buildout for the Python auto-tagging service.
 
 ## 0. Scaffold
 
-- [ ] 0.1 Python project (uv/poetry) + Dockerfile → image published to Docker Hub; CI
-      — *code done* (`pyproject.toml`, `Dockerfile`, src layout); **blocked**: Docker Hub publish + CI workflow (infra)
+- [x] 0.1 Python project (uv/poetry) + Dockerfile → image published to Docker Hub; CI — **DONE.**
+      Scaffold + Dockerfile; OLYMPUS-style CI/dev/release workflows. The `.[ml,grpc]` image builds
+      (validated + 5 fixes, PR #4) and **publishes**: the first `development` push had `dev.yml`
+      push `calvinference/argus-tagger:dev-<sha>` (~358 MB) to Docker Hub. Base is **py3.11**
+      (RAM++'s pinned transformers/tokenizers can't do 3.12).
 - [x] 0.2 Config (env): Hermes base URL, topic/subscription, Apollo endpoint, thresholds, model paths — `config.py`
 - [x] 0.3 A minimal health/readiness endpoint (models loaded = ready) — `health.py` (readiness = `pipeline.ready`)
 
