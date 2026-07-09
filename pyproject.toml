@@ -1,0 +1,84 @@
+[project]
+name = "argus-tagger"
+version = "0.1.0"
+description = "Argus — the all-seeing auto-tagging service for the Codex media constellation"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+authors = [{ name = "Calvin Ference" }]
+
+# Core runtime deps — light enough that the pure pipeline, the Hermes client,
+# and the whole test suite install and run WITHOUT the heavy ML stack.
+dependencies = [
+    "httpx>=0.27",   # Hermes REST client
+    "numpy>=1.26",   # preprocessing / postprocessing
+    "pillow>=10.0",  # image decode + resize
+]
+
+[project.optional-dependencies]
+# Heavy inference deps — pulled only on the target node (see tasks 0.a / 1.1).
+# wd-tagger v3 → onnxruntime; RAM++ → torch + the upstream `ram` package.
+ml = [
+    "onnxruntime>=1.17",
+    "torch>=2.2",
+    "recognize-anything @ git+https://github.com/xinyu1205/recognize-anything.git",
+]
+# Apollo sample reads over gRPC. NOTE: the .proto (the "Lexicon",
+# io.codex:lexicon-grpc) is external — generate stubs from it before this works.
+grpc = [
+    "grpcio>=1.60",
+    "grpcio-tools>=1.60",
+]
+
+[project.scripts]
+argus = "argus.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/argus"]
+
+# The `ml` extra pins RAM++ by a direct git reference; hatchling requires this
+# opt-in to allow direct references in metadata.
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+# Keep the `str, Enum` mixin (works identically to StrEnum for our explicit `.value`
+# use, and reads clearly); don't force the 3.11+ StrEnum rewrite.
+ignore = ["UP042"]
+
+[tool.ruff.lint.isort]
+# Declare our package explicitly so import-group ordering is deterministic across
+# environments (src-layout auto-detection differs local vs CI).
+known-first-party = ["argus"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "src"
+packages = ["argus"]
+
+# Optional inference deps (installed only via the `ml`/`grpc` extras on the target
+# node) ship no stubs — don't fail the typecheck on the light dev install.
+[[tool.mypy.overrides]]
+module = ["onnxruntime", "torch", "ram.*", "grpc"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

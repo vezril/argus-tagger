@@ -1,0 +1,27 @@
+schema: spec-driven
+
+context: |
+  Argus — the all-seeing auto-tagging service for the Codex constellation. A dedicated
+  Python service (the one non-JVM member of an otherwise Scala/Pekko fleet, because ML
+  inference is Python's home turf). It suggests tags for uploaded media; a human reviews
+  them in Muses (suggestions-only, never auto-applied).
+
+  Multi-model for mixed content (anime/art AND photos): wd-tagger v3 (Danbooru-style) +
+  RAM++ (real-world), run-both-and-merge. CPU-only ONNX Runtime (no GPU on the homelab).
+
+  Decoupled worker: Artemis publishes a tag-job to HermesMQ; Argus consumes it (pull-based,
+  lease-aware), fetches the sample derivative from Apollo, runs inference, and publishes raw
+  suggestions back for Artemis to alias-merge and queue for review. Argus needs its own
+  Python HermesMQ client (Hermes ships a Scala client; Argus speaks its REST API).
+
+  Deployed by Codex (its own Docker image → Docker Hub), pinned to a CPU-headroom node.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
