@@ -1,0 +1,54 @@
+name: CI
+
+# Runs on every pull request and on pushes to the integration/release branches.
+# Serves as the required status check for branch protection.
+on:
+  pull_request:
+  push:
+    branches:
+      - development
+      - main
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Lint, Type-check & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      # Install the core runtime deps + tools, but do NOT install the package
+      # itself: ruff/mypy/pytest check it straight from `src/` (via mypy_path /
+      # pytest pythonpath). An editable install would shadow the source with a
+      # hatchling import hook mypy can't follow. The heavy `ml` extra (torch +
+      # the git-based RAM++ dep) is excluded here — it installs on the target
+      # node, and full packaging is validated by the Docker build in dev/release.
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install httpx numpy pillow ruff mypy pytest
+
+      # Lint first so a style/error failure fails fast, before the slower steps.
+      - name: Lint (ruff)
+        run: ruff check src tests
+
+      - name: Type-check (mypy)
+        run: mypy -p argus
+
+      - name: Test (pytest)
+        run: pytest -q
