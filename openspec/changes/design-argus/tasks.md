@@ -9,13 +9,18 @@ Buildout for the Python auto-tagging service.
 
 ## 0. Feasibility spike (gate — do BEFORE committing to the two-model pipeline)
 
-- [ ] 0.a RAM++ latency spike: run `inference_ram_plus.py` in **torch CPU** on the *target node*
-      (the CPU-headroom laptop/NAS) over ~20 representative images; record seconds/image. This
-      validates the "~seconds/image, async → fine" assumption that the whole two-model design
-      rests on. If it's intolerable → reconsider (wd-only v1, or a lighter photo tagger).
-- [ ] 0.b Confirm the per-model runtime decision holds (wd→ONNX, RAM++→torch); only pursue a
-      RAM++ ONNX export (frozen tag embeddings → static image-encoder+decoder graph) if 0.a shows
-      latency actually hurts.
+- [x] 0.a RAM++ latency spike — **DONE. Verdict: the two-model latency assumption HOLDS.**
+      Measured via `spikes/ram_plus_latency.py`: on an M4 Pro (arm64) floor, **0.75s/image
+      single-core, ~0.45s multi** (parallelism plateaus at ~4 threads → per-core-speed bound),
+      4.8s warm load. Extrapolated to the target node (QNAP N5105 / old laptops, ~5× slower
+      per-core) ≈ **~1–3s/image** — comfortably within "seconds/image, async" at personal scale.
+      No redesign needed. ⚠️ Numbers are extrapolated from a dev box, not the target — rerun the
+      script on the real node to confirm. Memory: RAM++ resident ≈ 3–5 GB → node needs **≥8 GB**
+      (a base-4 GB QNAP won't fit). Also surfaced: the `ml` stack needs pinned deps (see 1.1).
+- [x] 0.b Per-model runtime decision **CONFIRMED** (wd→ONNX, RAM++→torch CPU). RAM++ latency is
+      fine as-is, so no ONNX export is warranted now. Bonus from the spike: the per-tag logit
+      path is validated and wired (`ram_plus.py:_tag_scores`), and RAM++ uses **per-class**
+      thresholds (`model.class_threshold`), now used instead of a single value.
 
 ## 0. Scaffold
 
@@ -27,9 +32,9 @@ Buildout for the Python auto-tagging service.
 ## 1. Models
 
 - [ ] 1.1 Pull wd-tagger v3 (base, ONNX) + RAM++ (swin_large, Apache-2.0) weights from HuggingFace; bake or mount from NAS
-      — **blocked**: weight download + NAS mount (target node)
+      — **blocked**: weight download + NAS mount (target node). RAM++ weights = `ram_plus_swin_large_14m.pth` (~1.5 GB) from `xinyu1205/recognize-anything-plus-model`. ml deps now pinned in `pyproject.toml` (transformers==4.25.1, scipy, fairscale) per the §0.a spike.
 - [ ] 1.2 Load both **warm** (loaded once): wd-tagger as an **ONNX Runtime CPU** session; RAM++ as a **torch CPU** model (`set_num_threads`); load `selected_tags` (wd) + the frozen `ram_plus_tag_embedding_class_4585_des_51` head (RAM++)
-      — *loaders wired* (`wd_tagger.py`, `ram_plus.py`); **blocked**: needs weights to load; RAM++ per-tag logit path (`_tag_logits`) to wire against the pinned `ram` version
+      — *loaders wired* (`wd_tagger.py`, `ram_plus.py`). RAM++ per-tag logit path now **wired + validated** in the §0.a spike (`ram_plus.py:_tag_scores`, per-class thresholds). **Blocked** only on real weights for an on-node integration test.
 - [x] 1.3 Preprocess per model (wd ~448 / RAM++ 384: resize/pad/normalize) + postprocess (threshold) — `preprocess.py`
 
 ## 2. Tagging pipeline
