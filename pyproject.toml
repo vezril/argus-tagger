@@ -3,7 +3,9 @@ name = "argus-tagger"
 version = "0.1.0"
 description = "Argus — the all-seeing auto-tagging service for the Codex media constellation"
 readme = "README.md"
-requires-python = ">=3.12"
+# 3.11, not 3.12: RAM++'s pinned transformers==4.25.1 needs tokenizers 0.13.3,
+# which has no cp312 wheel (would require a Rust build). The image runs 3.11.
+requires-python = ">=3.11"
 license = { file = "LICENSE" }
 authors = [{ name = "Calvin Ference" }]
 
@@ -32,7 +34,9 @@ ml = [
     "transformers==4.25.1",
     "scipy>=1.10",
     "fairscale>=0.4",
-    "recognize-anything @ git+https://github.com/xinyu1205/recognize-anything.git",
+    # The repo's package metadata name is `ram` (imported as `ram`), NOT
+    # `recognize-anything` — a named requirement must match it or uv rejects it.
+    "ram @ git+https://github.com/xinyu1205/recognize-anything.git",
 ]
 # Apollo sample reads over gRPC. NOTE: the .proto (the "Lexicon",
 # io.codex:lexicon-grpc) is external — generate stubs from it before this works.
